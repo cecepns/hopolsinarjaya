@@ -54,6 +54,7 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   verifyToken: () => api.get('/auth/verify'),
+  changePassword: (payload) => api.post('/auth/change-password', payload),
 };
 
 // Products endpoints

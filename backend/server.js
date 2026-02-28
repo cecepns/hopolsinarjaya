@@ -176,6 +176,54 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
   });
 });
 
+// Change password (Admin only)
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const getAdmin = () => new Promise((resolve, reject) => {
+      db.query('SELECT id, password FROM admin_users WHERE id = ?', [userId], (err, results) => {
+        if (err) return reject(err);
+        resolve(results[0]);
+      });
+    });
+
+    const user = await getAdmin();
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const updatePassword = () => new Promise((resolve, reject) => {
+      db.query('UPDATE admin_users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [hashedPassword, userId], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    await updatePassword();
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // =================== PRODUCTS ROUTES ===================
 
 // Get all products with pagination and search

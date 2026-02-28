@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Phone, Mail } from 'lucide-react';
-import Logo from '../../assets/logo.png';
-import { settingsAPI } from '../../utils/api';
+import defaultLogo from '../../assets/logo.png';
+import { settingsAPI, getImageUrl } from '../../utils/api';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -11,6 +11,7 @@ const Header = () => {
     company_phone: '',
     company_email: '',
     company_address: '',
+    logo_url: '',
   });
   const location = useLocation();
 
@@ -27,6 +28,7 @@ const Header = () => {
           company_phone: data.company_phone || '',
           company_email: data.company_email || '',
           company_address: data.company_address || '',
+          logo_url: data.logo_url || '',
         });
       } catch (error) {
         console.error('Error fetching header settings:', error);
@@ -83,9 +85,13 @@ const Header = () => {
       }`}>
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center py-4">
-            {/* Logo */}
+            {/* Logo: from settings or default */}
             <Link to="/" className="flex items-center space-x-3">
-              <img src={Logo}  className="w-24 h-auto" />
+              <img
+                src={settings.logo_url ? getImageUrl(settings.logo_url) : defaultLogo}
+                alt="Logo"
+                className="w-24 h-auto"
+              />
             </Link>
 
             {/* Desktop Navigation */}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import AOS from 'aos';
-import { Save, Building, MapPin, Phone, Mail, Globe, Info, Clock, Target, Image as ImageIcon } from 'lucide-react';
-import { settingsAPI, uploadAPI, getImageUrl } from '../../utils/api';
+import { Save, Building, MapPin, Phone, Mail, Globe, Info, Clock, Target, Image as ImageIcon, Lock } from 'lucide-react';
+import { settingsAPI, uploadAPI, getImageUrl, authAPI } from '../../utils/api';
 
 const Settings = () => {
   const [settings, setSettings] = useState({
@@ -12,6 +12,7 @@ const Settings = () => {
     company_about: '',
     company_working_hours: '',
     google_maps_embed: '',
+    logo_url: '',
     home_about_title: '',
     home_about_description: '',
     home_about_image: '',
@@ -23,6 +24,14 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAboutImage, setUploadingAboutImage] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
     AOS.init({ duration: 1000 });
@@ -74,6 +83,32 @@ const Settings = () => {
     }
   };
 
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingLogo(true);
+    try {
+      const response = await uploadAPI.uploadImage(file);
+      const imageUrl = response.data?.data?.url || response.data?.url;
+
+      if (!imageUrl) {
+        alert('Error: No image URL received from server');
+        return;
+      }
+
+      setSettings(prev => ({
+        ...prev,
+        logo_url: imageUrl
+      }));
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      alert('Error uploading logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -86,6 +121,40 @@ const Settings = () => {
       alert('Error updating settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    setPasswordForm({ ...passwordForm, [e.target.name]: e.target.value });
+    setPasswordMessage({ type: '', text: '' });
+  };
+
+  const handleChangePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordMessage({ type: '', text: '' });
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'New password and confirmation do not match' });
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: 'New password must be at least 6 characters' });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await authAPI.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordMessage({ type: 'success', text: 'Password changed successfully' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Failed to change password';
+      setPasswordMessage({ type: 'error', text: msg });
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -205,6 +274,46 @@ const Settings = () => {
                 Gunakan baris baru untuk memisahkan setiap baris jam kerja.
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Logo (Header) */}
+        <div className="bg-white rounded-lg shadow-md p-6" data-aos="fade-up">
+          <div className="flex items-center mb-6">
+            <ImageIcon className="text-primary-600 mr-3" size={24} />
+            <h2 className="text-lg font-semibold text-gray-900">Logo (Header)</h2>
+          </div>
+          <div className="space-y-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Logo Website (ditampilkan di header)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleLogoUpload}
+              className="input-field"
+              disabled={uploadingLogo}
+            />
+            {uploadingLogo && (
+              <div className="flex items-center space-x-2 text-primary-600 text-sm">
+                <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                <span>Uploading logo...</span>
+              </div>
+            )}
+            {settings.logo_url ? (
+              <div className="mt-2">
+                <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                <img
+                  src={getImageUrl(settings.logo_url)}
+                  alt="Header Logo"
+                  className="w-24 h-auto object-contain rounded border border-gray-200"
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                Jika tidak diisi, logo default (dari assets) akan ditampilkan di header.
+              </p>
+            )}
           </div>
         </div>
 
@@ -467,6 +576,85 @@ const Settings = () => {
           </button>
         </div>
       </form>
+
+      {/* Change Password */}
+      <div className="bg-white rounded-lg shadow-md p-6 mt-6" data-aos="fade-up">
+        <div className="flex items-center mb-6">
+          <Lock className="text-primary-600 mr-3" size={24} />
+          <h2 className="text-lg font-semibold text-gray-900">Ubah Password</h2>
+        </div>
+        <form onSubmit={handleChangePasswordSubmit} className="space-y-4 max-w-md">
+          {passwordMessage.text && (
+            <div
+              className={`p-3 rounded-lg text-sm ${
+                passwordMessage.type === 'success'
+                  ? 'bg-green-50 text-green-800 border border-green-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}
+            >
+              {passwordMessage.text}
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Password saat ini</label>
+            <input
+              type="password"
+              name="currentPassword"
+              value={passwordForm.currentPassword}
+              onChange={handlePasswordChange}
+              required
+              className="input-field"
+              placeholder="Masukkan password saat ini"
+              autoComplete="current-password"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Password baru</label>
+            <input
+              type="password"
+              name="newPassword"
+              value={passwordForm.newPassword}
+              onChange={handlePasswordChange}
+              required
+              minLength={6}
+              className="input-field"
+              placeholder="Min. 6 karakter"
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Konfirmasi password baru</label>
+            <input
+              type="password"
+              name="confirmPassword"
+              value={passwordForm.confirmPassword}
+              onChange={handlePasswordChange}
+              required
+              minLength={6}
+              className="input-field"
+              placeholder="Ulangi password baru"
+              autoComplete="new-password"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={changingPassword}
+            className="btn-primary inline-flex items-center space-x-2 px-6 py-2.5"
+          >
+            {changingPassword ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Mengubah...</span>
+              </>
+            ) : (
+              <>
+                <Lock size={16} />
+                <span>Ubah Password</span>
+              </>
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
