@@ -210,7 +210,7 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const updatePassword = () => new Promise((resolve, reject) => {
-      db.query('UPDATE admin_users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [hashedPassword, userId], (err, result) => {
+      db.query('UPDATE admin_users SET password = ? WHERE id = ?', [hashedPassword, userId], (err, result) => {
         if (err) return reject(err);
         resolve(result);
       });
